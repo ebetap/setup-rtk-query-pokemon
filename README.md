@@ -1,4 +1,4 @@
-Tentu! Berikut saya perpanjang dan perdetail langkah-langkahnya agar lebih lengkap dan terperinci:
+Tutorial memasang Redux Toolkit Query dengan `createApi` pada Next.js app menggunakan JavaScript:
 
 ### Langkah 1: Persiapan Awal
 
@@ -91,6 +91,7 @@ Buat komponen-komponen React untuk menampilkan data Pokemon dan form CRUD:
 // pages/index.js
 import React from 'react';
 import { useGetAllPokemonQuery } from '../services/pokemon';
+import Link from 'next/link';
 
 export default function Home() {
   const { data: pokemonList, error, isLoading } = useGetAllPokemonQuery();
@@ -106,35 +107,37 @@ export default function Home() {
           <h2>{pokemon.name}</h2>
           <p>Height: {pokemon.height}</p>
           <p>Weight: {pokemon.weight}</p>
+          <Link href={`/pokemon/${pokemon.id}`}>
+            <a>Details</a>
+          </Link>
         </div>
       ))}
+      <Link href="/add-pokemon">
+        <a>Add Pokemon</a>
+      </Link>
     </div>
   );
 }
 ```
 
-### Langkah 5: Menggunakan Mutations
-
-Tambahkan form atau penggunaan mutation untuk menambahkan, memperbarui, dan menghapus Pokemon:
-
 ```javascript
 // pages/add-pokemon.js
 import React, { useState } from 'react';
 import { useAddPokemonMutation } from '../services/pokemon';
+import { useRouter } from 'next/router';
 
 export default function AddPokemon() {
   const [name, setName] = useState('');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [addPokemon, { isLoading }] = useAddPokemonMutation();
+  const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       await addPokemon({ name, height, weight });
-      setName('');
-      setHeight('');
-      setWeight('');
+      router.push('/');
     } catch (error) {
       console.error('Failed to add pokemon:', error);
     }
@@ -153,7 +156,7 @@ export default function AddPokemon() {
 }
 ```
 
-### Langkah 6: Menggunakan Router Next.js
+### Langkah 5: Menggunakan Router Next.js
 
 Gunakan Next.js router untuk navigasi antar halaman:
 
@@ -189,7 +192,7 @@ function MyApp({ Component, pageProps }) {
 export default MyApp;
 ```
 
-### Langkah 7: Menjalankan Aplikasi
+### Langkah 6: Menjalankan Aplikasi
 
 Jalankan aplikasi Next.js dengan perintah:
 
@@ -205,7 +208,7 @@ Aplikasi akan berjalan di `http://localhost:3000`. Anda sekarang dapat mengakses
   
 - **RTK Query**: Menyediakan hooks seperti `useGetPokemonByIdQuery` dan `useAddPokemonMutation` untuk mendapatkan data dan melakukan operasi mutasi (CRUD) terhadap data Pokemon.
 
-- **Komponen dan Tampilan**: Menggunakan React hooks seperti `useState` untuk form input dan render data Pokemon dengan kondisi loading dan error handling.
+- **Komponen dan Tampilan**: Menggunakan React hooks seperti `useState` untuk form input dan render data Pokemon dengan kondisi loading dan error handling. Menambahkan navigasi antar halaman dengan Next.js `Link`.
 
 - **Router Next.js**: Menggunakan Next.js router dan `Link` untuk navigasi antar halaman.
 
