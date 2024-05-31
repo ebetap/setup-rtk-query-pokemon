@@ -1,53 +1,70 @@
-Untuk memasang Redux Toolkit Query dengan `createApi` dan melakukan CRUD menggunakan API Pokemon, berikut adalah langkah-langkahnya. Tutorial ini akan menggunakan Next.js dengan JavaScript.
+Tentu! Berikut saya perpanjang dan perdetail langkah-langkahnya agar lebih lengkap dan terperinci:
 
 ### Langkah 1: Persiapan Awal
 
-Pastikan Anda telah membuat proyek Next.js. Jika belum, Anda dapat membuatnya dengan perintah:
+Pastikan proyek Next.js sudah dibuat dan Tailwind CSS sudah diinstall. Selanjutnya, instal Redux Toolkit dan RTK Query:
 
 ```bash
-npx create-next-app@12.0.7 my-nextjs-app
-cd my-nextjs-app
+npm install @reduxjs/toolkit @reduxjs/toolkit-query react-redux axios
 ```
 
-### Langkah 2: Instalasi Redux Toolkit dan Dependencies
+### Langkah 2: Setup Redux Store
 
-Instal Redux Toolkit dan dependencies yang diperlukan:
-
-```bash
-npm install @reduxjs/toolkit react-redux axios
-npm install @reduxjs/toolkit/query react-query-hooks
-```
-
-### Langkah 3: Membuat API Client
-
-Buat file `api.js` di dalam folder `lib` untuk menangani HTTP request ke API Pokemon:
+Redux Toolkit memungkinkan Anda untuk membuat store Redux dengan cara yang lebih mudah dan intuitif. Buat file `store.js` untuk setup Redux store:
 
 ```javascript
-// lib/api.js
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
+// store.js
+import { configureStore } from '@reduxjs/toolkit';
+import { setupListeners } from '@reduxjs/toolkit/query/react';
+import { pokemonApi } from './services/pokemon';
 
-const pokemonApi = createApi({
+// Configure Redux store
+export const store = configureStore({
+  reducer: {
+    [pokemonApi.reducerPath]: pokemonApi.reducer,
+    // Add other reducers here if needed
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(pokemonApi.middleware),
+});
+
+// Setup listeners for the API
+setupListeners(store.dispatch);
+
+export default store;
+```
+
+### Langkah 3: Setup RTK Query API
+
+RTK Query menyediakan `createApi` untuk membuat API slice secara deklaratif. Buat file `services/pokemon.js` untuk menentukan API menggunakan `createApi`:
+
+```javascript
+// services/pokemon.js
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+
+// Define a service using a base URL and expected endpoints
+export const pokemonApi = createApi({
   reducerPath: 'pokemonApi',
   baseQuery: fetchBaseQuery({ baseUrl: 'https://pokeapi.co/api/v2/' }),
   endpoints: (builder) => ({
-    getPokemons: builder.query({
-      query: (limit = 10) => `pokemon?limit=${limit}`,
-    }),
     getPokemonById: builder.query({
       query: (id) => `pokemon/${id}`,
     }),
+    getAllPokemon: builder.query({
+      query: () => 'pokemon',
+    }),
     addPokemon: builder.mutation({
-      query: (newPokemon) => ({
-        url: 'pokemon',
+      query: (pokemon) => ({
+        url: `pokemon`,
         method: 'POST',
-        body: newPokemon,
+        body: pokemon,
       }),
     }),
     updatePokemon: builder.mutation({
-      query: ({ id, updatedPokemon }) => ({
+      query: ({ id, pokemon }) => ({
         url: `pokemon/${id}`,
         method: 'PUT',
-        body: updatedPokemon,
+        body: pokemon,
       }),
     }),
     deletePokemon: builder.mutation({
@@ -57,113 +74,139 @@ const pokemonApi = createApi({
       }),
     }),
   }),
-})
+});
 
-export const {
-  useGetPokemonsQuery,
-  useGetPokemonByIdQuery,
-  useAddPokemonMutation,
-  useUpdatePokemonMutation,
-  useDeletePokemonMutation,
-} = pokemonApi
-export default pokemonApi
+// Export hooks for usage in functional components, e.g. useGetPokemonByIdQuery, useAddPokemonMutation, etc.
+export const { useGetPokemonByIdQuery, useGetAllPokemonQuery, useAddPokemonMutation, useUpdatePokemonMutation, useDeletePokemonMutation } = pokemonApi;
+
+// Export the API for use in `configureStore` in `store.js`
+export { pokemonApi };
 ```
 
-### Langkah 4: Konfigurasi Redux Store
+### Langkah 4: Setup Komponen dan Tampilan
 
-Buat dan konfigurasikan Redux store dengan `redux-toolkit` di `store.js`:
-
-```javascript
-// store.js
-import { configureStore } from '@reduxjs/toolkit'
-import pokemonApi from './lib/api'
-
-const store = configureStore({
-  reducer: {
-    [pokemonApi.reducerPath]: pokemonApi.reducer,
-  },
-  middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(pokemonApi.middleware),
-})
-
-export default store
-```
-
-### Langkah 5: Mengintegrasikan dengan Next.js
-
-Integrasikan Redux store dengan Next.js menggunakan `_app.js`:
-
-```javascript
-// pages/_app.js
-import { Provider } from 'react-redux'
-import store from '../store'
-import { QueryClient, QueryClientProvider } from 'react-query'
-import { ReactQueryDevtools } from 'react-query/devtools'
-
-const queryClient = new QueryClient()
-
-function MyApp({ Component, pageProps }) {
-  return (
-    <Provider store={store}>
-      <QueryClientProvider client={queryClient}>
-        <Component {...pageProps} />
-        <ReactQueryDevtools initialIsOpen={false} />
-      </QueryClientProvider>
-    </Provider>
-  )
-}
-
-export default MyApp
-```
-
-### Langkah 6: Menggunakan API di Halaman Next.js
-
-Gunakan hooks yang telah dibuat untuk mengambil data dari API dan melakukan operasi CRUD di halaman Next.js:
+Buat komponen-komponen React untuk menampilkan data Pokemon dan form CRUD:
 
 ```javascript
 // pages/index.js
-import { useGetPokemonsQuery, useAddPokemonMutation } from '../lib/api'
+import React from 'react';
+import { useGetAllPokemonQuery } from '../services/pokemon';
 
 export default function Home() {
-  const { data: pokemons, error, isLoading } = useGetPokemonsQuery()
-  const [addPokemon] = useAddPokemonMutation()
+  const { data: pokemonList, error, isLoading } = useGetAllPokemonQuery();
 
-  if (isLoading) return <div>Loading...</div>
-  if (error) return <div>Error: {error.message}</div>
-
-  const handleAddPokemon = async () => {
-    const newPokemon = { name: 'Pikachu', type: 'Electric' }
-    try {
-      await addPokemon(newPokemon)
-    } catch (error) {
-      console.error('Failed to add:', error)
-    }
-  }
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
 
   return (
     <div>
       <h1>Pokemon List</h1>
-      <button onClick={handleAddPokemon}>Add Pokemon</button>
-      <ul>
-        {pokemons?.results.map((pokemon) => (
-          <li key={pokemon.name}>{pokemon.name}</li>
-        ))}
-      </ul>
+      {pokemonList.map((pokemon) => (
+        <div key={pokemon.id}>
+          <h2>{pokemon.name}</h2>
+          <p>Height: {pokemon.height}</p>
+          <p>Weight: {pokemon.weight}</p>
+        </div>
+      ))}
     </div>
-  )
+  );
 }
+```
+
+### Langkah 5: Menggunakan Mutations
+
+Tambahkan form atau penggunaan mutation untuk menambahkan, memperbarui, dan menghapus Pokemon:
+
+```javascript
+// pages/add-pokemon.js
+import React, { useState } from 'react';
+import { useAddPokemonMutation } from '../services/pokemon';
+
+export default function AddPokemon() {
+  const [name, setName] = useState('');
+  const [height, setHeight] = useState('');
+  const [weight, setWeight] = useState('');
+  const [addPokemon, { isLoading }] = useAddPokemonMutation();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await addPokemon({ name, height, weight });
+      setName('');
+      setHeight('');
+      setWeight('');
+    } catch (error) {
+      console.error('Failed to add pokemon:', error);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+      <input type="text" placeholder="Height" value={height} onChange={(e) => setHeight(e.target.value)} required />
+      <input type="text" placeholder="Weight" value={weight} onChange={(e) => setWeight(e.target.value)} required />
+      <button type="submit" disabled={isLoading}>
+        Add Pokemon
+      </button>
+    </form>
+  );
+}
+```
+
+### Langkah 6: Menggunakan Router Next.js
+
+Gunakan Next.js router untuk navigasi antar halaman:
+
+```javascript
+// pages/_app.js
+import '../styles/globals.css';
+import { Provider } from 'react-redux';
+import { store } from '../store';
+import Link from 'next/link';
+
+function MyApp({ Component, pageProps }) {
+  return (
+    <Provider store={store}>
+      <nav>
+        <ul>
+          <li>
+            <Link href="/">
+              <a>Home</a>
+            </Link>
+          </li>
+          <li>
+            <Link href="/add-pokemon">
+              <a>Add Pokemon</a>
+            </Link>
+          </li>
+        </ul>
+      </nav>
+      <Component {...pageProps} />
+    </Provider>
+  );
+}
+
+export default MyApp;
 ```
 
 ### Langkah 7: Menjalankan Aplikasi
 
-Jalankan aplikasi Next.js Anda:
+Jalankan aplikasi Next.js dengan perintah:
 
 ```bash
 npm run dev
 ```
 
-Akses halaman `http://localhost:3000` untuk melihat aplikasi berjalan.
+Aplikasi akan berjalan di `http://localhost:3000`. Anda sekarang dapat mengakses halaman utama dan halaman tambah Pokemon.
 
-### Kesimpulan
+### Penjelasan Tambahan
 
-Anda telah membuat aplikasi Next.js yang menggunakan Redux Toolkit Query dengan `createApi` untuk melakukan operasi CRUD pada API Pokemon. Anda juga telah mengintegrasikan Redux Toolkit dengan Next.js untuk manajemen state. Jangan lupa untuk menyesuaikan dengan kebutuhan proyek Anda sendiri dan melakukan penanganan error serta optimisasi tambahan sesuai dengan kebutuhan.
+- **Redux Toolkit**: Menggunakan `configureStore` untuk membuat store Redux, dan `setupListeners` untuk mengintegrasikan RTK Query dengan Redux store.
+  
+- **RTK Query**: Menyediakan hooks seperti `useGetPokemonByIdQuery` dan `useAddPokemonMutation` untuk mendapatkan data dan melakukan operasi mutasi (CRUD) terhadap data Pokemon.
+
+- **Komponen dan Tampilan**: Menggunakan React hooks seperti `useState` untuk form input dan render data Pokemon dengan kondisi loading dan error handling.
+
+- **Router Next.js**: Menggunakan Next.js router dan `Link` untuk navigasi antar halaman.
+
+Dengan mengikuti langkah-langkah di atas, Anda telah memasang Redux Toolkit Query dengan `createApi` pada Next.js app menggunakan JavaScript. Anda dapat menyesuaikan dengan kebutuhan proyek Anda, misalnya menambahkan validasi form, penanganan lebih lanjut terhadap error, atau menyesuaikan tampilan dengan Tailwind CSS.
